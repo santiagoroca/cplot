@@ -1,4 +1,0 @@
-echo "fillStyle(#000000)"
-echo "fillRect(0, 0, 50, 50)"
-echo "fillStyle(#0000FF)"
-echo "fillRect(100, 100, 50, 50)"

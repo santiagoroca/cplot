@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title></title>
+  </head>
+  <style>
+    html, body, canvas {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+  </style>
+  <body>
+      <canvas id="canvas-stream" width="800" height="800"></canvas>
+  </body>
+
+  <script>
+
+      var { ipcRenderer } = require('electron');
+
+      const canvas = document.getElementById('canvas-stream');
+      const context = canvas.getContext('2d')
+
+      // If interpolations is enabled, all values will lay between the max
+      // configured value
+      let shouldInterpolate = false;
+      let interpolationConstant = 0
+      let interpolationMin = 0;
+      let interpolationMax = 0;
+
+      const commands = {
+
+        [`${'interpolate'}`]: (context, args) => {
+          shouldInterpolate = true;
+          interpolationMin = args[0];
+          interpolationMax = args[1];
+          interpolationConstant = 800 / Math.abs(interpolationMax - interpolationMin);
+        },
+
+        [`${'solidRect'}`]: (context, args) => {
+
+          if (shouldInterpolate) {
+
+            // These are the x and y coordinates of the Rect, which are,
+            // translated to the origin and also interpolated
+            args[0] = (args[0] - interpolationMin) * interpolationConstant;
+            args[1] = (args[1] - interpolationMin) * interpolationConstant;
+
+            // Since this values represent the height and width magnitudes
+            // from the starting point, which are the previous values,
+            // this needs to only be interpolated and not translated
+            args[2] = args[2] * interpolationConstant;
+            args[3] = args[3] * interpolationConstant;
+
+          }
+
+          context.fillRect(
+            args[0], args[1], args[2], args[3]
+          );
+        },
+
+        [`${'dot'}`]: (context, args) => {
+
+          if (shouldInterpolate) {
+
+            // These are the x and y coordinates of the center of the circle
+            // it needs to be translated to the origin and also interpolated
+            args[0] = (args[0] - interpolationMin) * interpolationConstant;
+            args[1] = (args[1] - interpolationMin) * interpolationConstant;
+
+            // Since this values represent the radius of the circle
+            // this needs to only be interpolated and not translated
+            args[2] = args[2] * interpolationConstant;
+
+          }
+
+          context.beginPath();
+          context.arc(args[0], args[1], args[2], 0, 2 * Math.PI);
+          context.fill();
+          context.closePath();
+        },
+
+        [`${'rect'}`]: (context, args) => {
+
+          if (shouldInterpolate) {
+
+            // These are the x and y coordinates of the Rect, which are,
+            // translated to the origin and also interpolated
+            args[0] = (args[0] - interpolationMin) * interpolationConstant;
+            args[1] = (args[1] - interpolationMin) * interpolationConstant;
+
+            // Since this values represent the height and width magnitudes
+            // from the starting point, which are the previous values,
+            // this needs to only be interpolated and not translated
+            args[2] = args[2] * interpolationConstant;
+            args[3] = args[3] * interpolationConstant;
+
+          }
+
+          context.strokeRect(
+            args[0], args[1], args[2], args[3]
+          );
+        },
+
+        [`${'circle'}`]: (context, args) => {
+
+          if (shouldInterpolate) {
+
+            // These are the x and y coordinates of the center of the circle
+            // it needs to be translated to the origin and also interpolated
+            args[0] = (args[0] - interpolationMin) * interpolationConstant;
+            args[1] = (args[1] - interpolationMin) * interpolationConstant;
+
+            // Since this values represent the radius of the circle
+            // this needs to only be interpolated and not translated
+            args[2] = args[2] * interpolationConstant;
+
+          }
+
+          context.beginPath();
+          context.arc(args[0], args[1], args[2], 0, 2 * Math.PI);
+          context.stroke();
+          context.closePath();
+        },
+
+        [`${'triangle'}`]: (context, args) => {
+
+          if (shouldInterpolate) {
+
+            // These are the coordinates of the three points of the triangle
+            // each x and y pair represnts a relative position to the canvas
+            // thus, it needs to be translated and interpolated
+            args[0] = (args[0] - interpolationMin) * interpolationConstant;
+            args[1] = (args[1] - interpolationMin) * interpolationConstant;
+            args[2] = (args[2] - interpolationMin) * interpolationConstant;
+            args[3] = (args[3] - interpolationMin) * interpolationConstant;
+            args[4] = (args[4] - interpolationMin) * interpolationConstant;
+            args[5] = (args[5] - interpolationMin) * interpolationConstant;
+
+          }
+
+          context.beginPath();
+          context.moveTo(args[0], args[1]);
+          context.lineTo(args[2], args[3]);
+          context.lineTo(args[4], args[5]);
+          context.fill();
+          context.closePath();
+
+        },
+
+        [`${'fillStyle'}`]: (context, args) => {
+          context.fillStyle = args[0];
+        },
+
+        [`${'strokeStyle'}`]: (context, args) => {
+          context.strokeStyle = args[0];
+        },
+
+        [`${'beginPath'}`]: (context, args) => {
+          context.beginPath();
+        },
+
+        [`${'M'}`]: (context, args) => {
+          context.moveTo(args[0], args[1]);
+        },
+
+        [`${'L'}`]: (context, args) => {
+          context.lineTo(args[0], args[1]);
+          context.stroke();
+        },
+
+        [`${'Z'}`]: (context, args) => {
+          context.closePath(args[0], args[1]);
+        }
+
+      }
+
+      // Send async message to main process
+      // Listen for sync message from renderer process
+      ipcRenderer.on('command', (event, arg) => {
+
+        try {
+          const command = arg.match(/^[a-z]*(?=\()/i)[0];
+          let arguments = arg.replace(/.*?\(|\).*/ig, '')
+                                .split(',')
+                                .map(Number);
+
+          // If the command exists in the list of commands, execute
+          if (commands[command]) {
+            commands[command](context, arguments)
+          }
+
+        } catch (exception) {
+          console.log(exception);
+        }
+
+      });
+
+      //
+      ipcRenderer.send('ready', 1);
+
+  </script>
+</html>
